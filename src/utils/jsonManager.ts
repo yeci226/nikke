@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { TwUrlData } from "./unifiedDownloader.js";
+import { TwUrlData } from "./updateManager.js";
 import { Logger } from "../services/logger.js";
 
 export interface TwUrlStorage {

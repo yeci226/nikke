@@ -16,7 +16,17 @@ import {
 	ModalSubmitInteraction
 } from "discord.js";
 import { Logger } from "../services/logger.js";
-import { areaNameMap } from "../utils/nikke.js";
+import {
+	areaNameMap,
+	elementNameMap,
+	burstSkillNameMap,
+	getUserCharacters
+} from "../utils/nikke.js";
+import charactersData from "../utils/characters-tw.json" with { type: "json" };
+import type { Character } from "../types/index.js";
+
+// 類型安全的 characters 數組
+const characters: Character[] = charactersData as Character[];
 const webhook = new WebhookClient({ url: process.env.CMDWEBHOOK! });
 
 // Handle autocomplete interactions
@@ -25,6 +35,325 @@ async function handleAutocomplete(
 ): Promise<void> {
 	try {
 		const focusedValue = interaction.options.getFocused();
+		const commandName = interaction.commandName;
+
+		// 處理 team 指令的角色 autocomplete
+		if (commandName === "team") {
+			// 獲取已選擇的角色名稱
+			const selectedCharacters = new Set<string>();
+			interaction.options.data.forEach(option => {
+				if (
+					option.type === ApplicationCommandOptionType.String &&
+					option.value
+				) {
+					selectedCharacters.add(option.value as string);
+				}
+			});
+
+			const filtered = characters
+				.filter(character => {
+					const characterName =
+						character.name_localkey.name.toLowerCase();
+					const element =
+						elementNameMap[
+							character.element_id.element
+								.element as keyof typeof elementNameMap
+						]?.toLowerCase() ||
+						character.element_id.element.element.toLowerCase();
+					const burstSkill =
+						burstSkillNameMap[
+							character.use_burst_skill as keyof typeof burstSkillNameMap
+						]?.toLowerCase() ||
+						character.use_burst_skill.toLowerCase();
+					const corporation = character.corporation.toLowerCase();
+					const searchValue = focusedValue.toLowerCase();
+
+					// 過濾掉已選擇的角色
+					if (selectedCharacters.has(character.name_localkey.name)) {
+						return false;
+					}
+
+					return (
+						characterName.includes(searchValue) ||
+						element.includes(searchValue) ||
+						burstSkill.includes(searchValue) ||
+						corporation.includes(searchValue)
+					);
+				})
+				.slice(0, 25)
+				.map(character => ({
+					name: `${character.name_localkey.name} | ${elementNameMap[character.element_id.element.element as keyof typeof elementNameMap]} | ${burstSkillNameMap[character.use_burst_skill as keyof typeof burstSkillNameMap]} | ${character.corporation}`,
+					value: character.name_localkey.name
+				}));
+
+			await interaction.respond(filtered);
+			return;
+		}
+
+		// 處理 character 指令的角色 autocomplete
+		if (commandName === "character") {
+			const subcommand = interaction.options.getSubcommand();
+
+			if (subcommand === "detail") {
+				const focusedOption = interaction.options.getFocused(true);
+
+				// 如果是角色選項的 autocomplete
+				if (focusedOption.name === "character") {
+					// 獲取帳號選項
+					const accountValue =
+						interaction.options.getString("account");
+					if (!accountValue) {
+						await interaction.respond([]);
+						return;
+					}
+
+					const [accountName, areaId] = accountValue.split("|");
+					if (!accountName || !areaId) {
+						await interaction.respond([]);
+						return;
+					}
+
+					// 獲取用戶帳號資料
+					const accounts = await databaseService.getUserAccounts(
+						interaction.user.id
+					);
+					const selectedAccount = accounts.find(
+						acc =>
+							acc.name === accountName &&
+							acc.nikke_area_id === areaId
+					);
+
+					if (!selectedAccount) {
+						await interaction.respond([]);
+						return;
+					}
+
+					// 獲取玩家角色資料
+					try {
+						// 從 cookie 中提取 intl_open_id
+						const cookieMatch =
+							selectedAccount.cookie.match(/game_openid=([^;]+)/);
+						if (!cookieMatch) {
+							await interaction.respond([]);
+							return;
+						}
+
+						const intl_open_id = cookieMatch[1];
+						if (!intl_open_id) {
+							await interaction.respond([]);
+							return;
+						}
+
+						const nikke_area_id = parseInt(areaId);
+
+						// 調用 API 獲取玩家角色
+						const userCharactersResponse = await getUserCharacters(
+							intl_open_id,
+							nikke_area_id,
+							selectedAccount.cookie
+						);
+
+						if (
+							!userCharactersResponse ||
+							!userCharactersResponse.data
+						) {
+							// 如果無法獲取玩家角色，回退到所有角色
+							const filtered = characters
+								.filter(character => {
+									const characterName =
+										character.name_localkey.name.toLowerCase();
+									const element =
+										elementNameMap[
+											character.element_id.element
+												.element as keyof typeof elementNameMap
+										]?.toLowerCase() ||
+										character.element_id.element.element.toLowerCase();
+									const burstSkill =
+										burstSkillNameMap[
+											character.use_burst_skill as keyof typeof burstSkillNameMap
+										]?.toLowerCase() ||
+										character.use_burst_skill.toLowerCase();
+									const corporation =
+										character.corporation.toLowerCase();
+									const searchValue =
+										focusedValue.toLowerCase();
+
+									return (
+										characterName.includes(searchValue) ||
+										element.includes(searchValue) ||
+										burstSkill.includes(searchValue) ||
+										corporation.includes(searchValue)
+									);
+								})
+								.slice(0, 25)
+								.map(character => ({
+									name: `${character.name_localkey.name} | ${elementNameMap[character.element_id.element.element as keyof typeof elementNameMap]} | ${burstSkillNameMap[character.use_burst_skill as keyof typeof burstSkillNameMap]}`,
+									value: character.name_localkey.name
+								}));
+
+							await interaction.respond(filtered);
+							return;
+						}
+
+						// 處理玩家角色資料
+						const characterList =
+							userCharactersResponse.data.character_list ||
+							userCharactersResponse.data.characters ||
+							[];
+						const userCharacters = characterList
+							.map((char: any) => {
+								// 根據 name_code 從 characters-tw.json 中找到對應的角色資料
+								const characterData = characters.find(
+									(c: any) => c.name_code === char.name_code
+								);
+
+								if (!characterData) {
+									return null;
+								}
+
+								return {
+									resource_id: characterData.resource_id,
+									name_localkey: {
+										name: characterData.name_localkey.name
+									},
+									original_rare: characterData.original_rare,
+									class: characterData.class,
+									element_id: characterData.element_id,
+									shot_id: characterData.shot_id,
+									use_burst_skill:
+										characterData.use_burst_skill,
+									corporation: characterData.corporation,
+									// 玩家角色特有資料
+									combat: char.combat || 0,
+									costume_id: char.costume_id || 0,
+									grade: char.grade || 0,
+									lv: char.lv || 1,
+									name_code: char.name_code
+								};
+							})
+							.filter(Boolean); // 過濾掉 null 值
+
+						// 按戰鬥力排序
+						const sortedCharacters = userCharacters.sort(
+							(a: any, b: any) =>
+								(b.combat || 0) - (a.combat || 0)
+						);
+
+						const filtered = sortedCharacters
+							.filter((character: any) => {
+								const characterName =
+									character.name_localkey.name.toLowerCase();
+								const element =
+									elementNameMap[
+										character.element_id.element
+											.element as keyof typeof elementNameMap
+									]?.toLowerCase() ||
+									character.element_id.element.element.toLowerCase();
+								const burstSkill =
+									burstSkillNameMap[
+										character.use_burst_skill as keyof typeof burstSkillNameMap
+									]?.toLowerCase() ||
+									character.use_burst_skill.toLowerCase();
+								const corporation =
+									character.corporation.toLowerCase();
+								const searchValue = focusedValue.toLowerCase();
+
+								return (
+									characterName.includes(searchValue) ||
+									element.includes(searchValue) ||
+									burstSkill.includes(searchValue) ||
+									corporation.includes(searchValue)
+								);
+							})
+							.slice(0, 25)
+							.map((character: any) => {
+								// 格式化顯示：角色名 | 戰鬥力 | 等級 | 突破 | 元素 | 爆裂技能
+								const combat = character.combat
+									? `戰鬥力 ${character.combat.toLocaleString()}`
+									: "戰鬥力 0";
+								const level = character.lv
+									? `等級 ${character.lv}`
+									: "等級 1";
+								const grade = character.grade || 0;
+								const core = character.core || 0;
+								const breakthrough =
+									core > 0
+										? `突破 ${grade}+${core}`
+										: `突破 ${grade}`;
+								const element =
+									elementNameMap[
+										character.element_id.element
+											.element as keyof typeof elementNameMap
+									] || character.element_id.element.element;
+								const burstSkill =
+									burstSkillNameMap[
+										character.use_burst_skill as keyof typeof burstSkillNameMap
+									] || character.use_burst_skill;
+
+								return {
+									name: `${character.name_localkey.name} | ${combat} | ${level} | ${breakthrough} | ${element} | ${burstSkill}`,
+									value: character.name_localkey.name
+								};
+							});
+
+						await interaction.respond(filtered);
+						return;
+					} catch (error) {
+						console.error("獲取玩家角色資料失敗:", error);
+						// 發生錯誤時回退到所有角色
+						const filtered = characters
+							.filter(character => {
+								const characterName =
+									character.name_localkey.name.toLowerCase();
+								const element =
+									elementNameMap[
+										character.element_id.element
+											.element as keyof typeof elementNameMap
+									]?.toLowerCase() ||
+									character.element_id.element.element.toLowerCase();
+								const burstSkill =
+									burstSkillNameMap[
+										character.use_burst_skill as keyof typeof burstSkillNameMap
+									]?.toLowerCase() ||
+									character.use_burst_skill.toLowerCase();
+								const corporation =
+									character.corporation.toLowerCase();
+								const searchValue = focusedValue.toLowerCase();
+
+								return (
+									characterName.includes(searchValue) ||
+									element.includes(searchValue) ||
+									burstSkill.includes(searchValue) ||
+									corporation.includes(searchValue)
+								);
+							})
+							.slice(0, 25)
+							.map(character => {
+								// 回退時顯示基本格式（沒有玩家數據）
+								const element =
+									elementNameMap[
+										character.element_id.element
+											.element as keyof typeof elementNameMap
+									] || character.element_id.element.element;
+								const burstSkill =
+									burstSkillNameMap[
+										character.use_burst_skill as keyof typeof burstSkillNameMap
+									] || character.use_burst_skill;
+
+								return {
+									name: `${character.name_localkey.name} | ${element} | ${burstSkill}`,
+									value: character.name_localkey.name
+								};
+							});
+
+						await interaction.respond(filtered);
+						return;
+					}
+				}
+			}
+		}
+
+		// 處理其他指令的帳號 autocomplete
 		const accounts = await databaseService.getUserAccounts(
 			interaction.user.id
 		);

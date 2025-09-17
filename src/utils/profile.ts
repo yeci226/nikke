@@ -1,14 +1,13 @@
-import {
-	createCanvas,
-	loadImage,
-	CanvasRenderingContext2D,
-	GlobalFonts
-} from "@napi-rs/canvas";
+import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import { join } from "path";
 import { readdir } from "fs/promises";
-import { areaNameMap } from "./nikke.js";
+import { areaNameMap, getFontString } from "./nikke.js";
 import chapterData from "./chapter.json" with { type: "json" };
-import charactersData from "./characters.json" with { type: "json" };
+import charactersDataRaw from "./characters-tw.json" with { type: "json" };
+import type { Character } from "../types/index.js";
+
+// 類型安全的 characters 數組
+const charactersData: Character[] = charactersDataRaw as Character[];
 // 獲取當前文件的路徑
 
 // 註冊字體
@@ -20,19 +19,6 @@ GlobalFonts.registerFromPath(
 	join(".", "src", ".", "assets", "DINNextLTPro-Regular.woff2"),
 	"DINNextLTPro"
 );
-
-/**
- * 獲取字體字符串，優先使用 DINNextLTPro，如果包含中文字符則回退到 YaHei
- */
-function getFontString(
-	fontSize: number,
-	weight: string = "normal",
-	text: string = ""
-): string {
-	const hasChinese = /[\u4e00-\u9fff]/.test(text);
-	const fontFamily = hasChinese ? "YaHei" : "DINNextLTPro";
-	return `${weight} ${fontSize}px '${fontFamily}'`;
-}
 
 /**
  * 隨機選擇 gallery 資料夾中的一張圖片
@@ -181,7 +167,7 @@ function getCharacterImagePath(iconId: number): string {
 		); // "5020"
 	}
 
-	// 在 characters.json 中查找對應的 resource_id
+	// 在 characters-tw.json 中查找對應的 resource_id
 	const character = charactersData.find(
 		(char: any) => char.name_code === nameCode
 	);

@@ -125,8 +125,7 @@ async function handleHowToSetup(
 				inline: false
 			}
 		)
-		.setColor(0x00ff00)
-		.setTimestamp();
+		.setColor(0x00ff00);
 
 	await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
