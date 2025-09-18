@@ -362,7 +362,7 @@ export async function generateProfileImage(data: ProfileData): Promise<Buffer> {
 	y = await drawDailyMissionsSection(ctx, y, data, images);
 	y = await drawOutpostInfoSection(ctx, y, data, images);
 
-	return canvas.toBuffer("image/png");
+	return canvas.toBuffer("image/webp");
 }
 
 /**

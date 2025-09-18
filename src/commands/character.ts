@@ -194,15 +194,19 @@ class ErrorHandler {
 	}
 
 	static validateImageBuffer(buffer: Buffer | null): boolean {
-		if (!buffer || buffer.length === 0) {
+		if (!buffer || buffer.length < 12) {
 			return false;
 		}
 
-		// 檢查 PNG 標頭
-		const pngHeader = Buffer.from([
-			0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a
-		]);
-		return buffer.subarray(0, 8).equals(pngHeader);
+		// 檢查 WebP 標頭
+		// WebP 格式: RIFF????WEBP (前4字節是RIFF，第8-11字節是WEBP)
+		const riffHeader = Buffer.from([0x52, 0x49, 0x46, 0x46]); // "RIFF"
+		const webpHeader = Buffer.from([0x57, 0x45, 0x42, 0x50]); // "WEBP"
+
+		return (
+			buffer.subarray(0, 4).equals(riffHeader) &&
+			buffer.subarray(8, 12).equals(webpHeader)
+		);
 	}
 
 	static async optimizeImageProcessing<T>(
@@ -410,7 +414,7 @@ const CONFIG = {
 		HEIGHT: 400,
 		SPACING: 20,
 		CARDS_PER_ROW: 12,
-		RARITY_BG_HEIGHT: Math.round((93 * 300) / 160), // 約174px
+		RARITY_BG_HEIGHT: Math.round((93 * 300) / 160), // 約156px
 		PADDING: 20 // 圖片邊距
 	},
 	ICON: {
@@ -450,89 +454,6 @@ const CONFIG = {
 		SPACING: 2.5
 	}
 } as const;
-
-// 裝備介面
-interface Equipment {
-	arm_equip_corporation_type: number;
-	arm_equip_lv: number;
-	arm_equip_option1_id: number;
-	arm_equip_option2_id: number;
-	arm_equip_option3_id: number;
-	arm_equip_tid: number;
-	arm_equip_tier: number;
-	head_equip_corporation_type: number;
-	head_equip_lv: number;
-	head_equip_option1_id: number;
-	head_equip_option2_id: number;
-	head_equip_option3_id: number;
-	head_equip_tid: number;
-	head_equip_tier: number;
-	leg_equip_corporation_type: number;
-	leg_equip_lv: number;
-	leg_equip_option1_id: number;
-	leg_equip_option2_id: number;
-	leg_equip_option3_id: number;
-	leg_equip_tid: number;
-	leg_equip_tier: number;
-	torso_equip_corporation_type: number;
-	torso_equip_lv: number;
-	torso_equip_option1_id: number;
-	torso_equip_option2_id: number;
-	torso_equip_option3_id: number;
-	torso_equip_tid: number;
-	torso_equip_tier: number;
-}
-
-// 技能介面
-interface Skills {
-	skill1_lv: number;
-	skill2_lv: number;
-	ulti_skill_lv: number;
-}
-
-// 狀態效果介面
-interface StateEffect {
-	function_details: Array<{
-		buff: string;
-		buff_icon: string;
-		duration_type: string;
-		duration_value: number;
-		function_battlepower: number;
-		function_standard: string;
-		function_target: string;
-		function_type: string;
-		function_value: number;
-		function_value_type: string;
-		id: number;
-		level: number;
-		name_localvalues: string;
-	}>;
-	functions: number[];
-	hurt_function_id_list: number[];
-	icon: string;
-	id: string;
-	use_function_id_list: number[];
-}
-
-// 角色詳細資料介面
-interface CharacterDetails {
-	arena_combat: number;
-	arena_harmony_cube_lv: number;
-	arena_harmony_cube_tid: number;
-	attractive_lv: number;
-	combat: number;
-	core: number;
-	costume_tid: number;
-	favorite_item_lv: number;
-	favorite_item_tid: number;
-	grade: number;
-	harmony_cube_lv: number;
-	harmony_cube_tid: number;
-	lv: number;
-	name_code: number;
-}
-
-// Character 接口已從 types/index.ts 導入
 
 // 排序類型
 type SortType = "combat" | "level" | "grade" | "rarity";
@@ -958,7 +879,7 @@ class ImagePathManager {
 	}
 
 	static getRarityImagePath(rarity: string): string {
-		return join(this.BASE_PATH, `${rarity}.png`);
+		return join(this.BASE_PATH, `${rarity.toLowerCase()}.png`);
 	}
 
 	static getJobImagePath(jobClass: string): string {
@@ -3852,8 +3773,7 @@ function parseFilterValues(values: string[]): FilterOptions {
 async function generateUserCharactersImage(
 	userCharacters: Character[]
 ): Promise<Buffer> {
-	const totalCharacters = userCharacters.length;
-	const rows = Math.ceil(totalCharacters / CONFIG.CARD.CARDS_PER_ROW);
+	const rows = Math.ceil(userCharacters.length / CONFIG.CARD.CARDS_PER_ROW);
 
 	const canvasWidth =
 		CONFIG.CARD.CARDS_PER_ROW * CONFIG.CARD.WIDTH +
@@ -3890,7 +3810,7 @@ async function generateUserCharactersImage(
 
 	await Promise.all(drawPromises);
 
-	const buffer = canvas.toBuffer("image/png");
+	const buffer = canvas.toBuffer("image/webp");
 
 	// 釋放 Canvas 資源
 	ResourceManager.releaseCanvas(canvas);
@@ -4346,7 +4266,7 @@ async function generateCharacterDetailImage(
 			let rightEdge = headerX + 3 * starSize + itemSpacing; // 從角色名稱左邊開始
 
 			// 繪製星星（從左到右）
-			if (character.grade !== undefined && character.grade > 0) {
+			if (character.grade !== undefined) {
 				await drawGradeStars(
 					ctx,
 					character.grade,
@@ -4650,7 +4570,7 @@ async function generateCharacterDetailImage(
 		});
 	}
 
-	const buffer = canvas.toBuffer("image/png");
+	const buffer = canvas.toBuffer("image/webp");
 
 	// 釋放 Canvas 資源
 	ResourceManager.releaseCanvas(canvas);
@@ -4940,15 +4860,17 @@ async function handleAllCharacters(
 		}
 
 		const attachment = new AttachmentBuilder(imageBuffer, {
-			name: `${accountName}_all_characters.png`
+			name: `${accountName}_all_characters.webp`
 		});
 
 		// 創建 SelectMenu 組件
 		const sortMenu = createSortSelectMenu(currentSort);
 		const filterMenu = createFilterSelectMenu(currentFilters);
 
+		// 如果角色數量超過限制，顯示警告訊息
+
 		await interaction.editReply({
-			content: `📋 ${accountName} 的全部角色 (${sortedCharacters.length}/${userCharacters.length} 個)`,
+			content: `-# 📋 指揮官 ${accountName} 的全部角色 (${sortedCharacters.length}/${userCharacters.length} 位)`,
 			files: [attachment],
 			components: [sortMenu, filterMenu]
 		});
@@ -4994,13 +4916,14 @@ async function handleAllCharacters(
 			const newImageBuffer =
 				await generateUserCharactersImage(sortedCharacters);
 			const newAttachment = new AttachmentBuilder(newImageBuffer, {
-				name: `${accountName}_all_characters.png`
+				name: `${accountName}_all_characters.webp`
 			});
 
 			// 更新 SelectMenu
 			const newSortMenu = createSortSelectMenu(currentSort);
 			const newFilterMenu = createFilterSelectMenu(currentFilters);
 
+			// 如果角色數量超過限制，顯示警告訊息
 			await selectInteraction.editReply({
 				content: `-# 📋 指揮官 ${accountName} 的全部角色 (${sortedCharacters.length}/${userCharacters.length} 位)`,
 				files: [newAttachment],
@@ -5212,7 +5135,7 @@ async function handleCharacterDetail(
 		const imageBuffer =
 			await generateCharacterDetailImage(selectedCharacter);
 		const attachment = new AttachmentBuilder(imageBuffer, {
-			name: `${characterName}_detail.png`
+			name: `${characterName}_detail.webp`
 		});
 
 		await interaction.editReply({

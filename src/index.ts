@@ -9,7 +9,8 @@ import {
 	GatewayIntentBits,
 	Partials,
 	Collection,
-	ApplicationCommandType
+	ApplicationCommandType,
+	Events
 } from "discord.js";
 import { ClusterClient, getInfo } from "discord-hybrid-sharding";
 import { QuickDB } from "quick.db";
@@ -159,7 +160,7 @@ async function initialize() {
 		const slashCommands = await loadCommandsAndEvents();
 
 		// 設置斜線指令
-		client.on("ready", async () => {
+		client.on(Events.ClientReady, async () => {
 			await client.application?.commands.set(slashCommands);
 
 			// 初始化並啟動 NIKKE 通知服務

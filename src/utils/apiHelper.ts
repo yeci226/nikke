@@ -35,13 +35,19 @@ export async function getUserGamePlayerInfo(
 	cookie: string
 ): Promise<GamePlayerInfo | null> {
 	try {
+		// 清理 cookie 字符串，移除換行符號和多餘空格
+		const cleanedCookie = cookie
+			.replace(/\r?\n/g, "")
+			.replace(/\s+/g, " ")
+			.trim();
+
 		const response = await fetch(
 			"https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo",
 			{
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					Cookie: cookie
+					Cookie: cleanedCookie
 				},
 				body: JSON.stringify({})
 			}

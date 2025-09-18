@@ -167,7 +167,7 @@ export default {
 
 				const imageBuffer = await generateProfileImage(profileData);
 				const attachment = new AttachmentBuilder(imageBuffer, {
-					name: `${accountName}_profile.png`
+					name: `${accountName}_profile.webp`
 				});
 				let currencyString = "";
 				if (currencies) {

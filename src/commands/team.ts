@@ -767,9 +767,9 @@ export default {
 			);
 
 			// 將 canvas 轉換為 buffer
-			const buffer = canvas.toBuffer("image/png");
+			const buffer = canvas.toBuffer("image/webp");
 			const attachment = new AttachmentBuilder(buffer, {
-				name: "team_composition.png"
+				name: "team_composition.webp"
 			});
 
 			await interaction.editReply({
