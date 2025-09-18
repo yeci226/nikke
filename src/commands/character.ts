@@ -995,17 +995,17 @@ class ImagePathManager {
 	): string {
 		// 部位映射: arm -> a, head -> h, torso -> t, leg -> l
 		const partMap: Record<string, string> = {
-			arm: "a",
-			head: "h",
-			torso: "t",
-			leg: "l"
+			arm: "arm",
+			head: "head",
+			torso: "body",
+			leg: "leg"
 		};
 
 		// 職業映射: Attacker -> a, Defender -> d, Supporter -> s
 		const classMap: Record<string, string> = {
-			Attacker: "a",
-			Defender: "d",
-			Supporter: "s"
+			Attacker: "attacker",
+			Defender: "defender",
+			Supporter: "supporter"
 		};
 
 		// 階級映射: 1~2->1, 3~4->3, 5~6->5, 7~8->7, 9->9, 10->10
@@ -1026,12 +1026,12 @@ class ImagePathManager {
 			tierLevel = "1"; // 默认
 		}
 
-		const partCode = partMap[partKey] || "a";
-		const classCode = classMap[characterClass] || "a";
+		const partCode = partMap[partKey] || "arm";
+		const classCode = classMap[characterClass] || "attacker";
 
 		return join(
 			this.BASE_PATH,
-			`gear/40px-Gear_${partCode}_${classCode}_${tierLevel}.png`
+			`gear/icn_equipment_${partCode}_${classCode}_t${tierLevel}.webp`
 		);
 	}
 
@@ -1395,6 +1395,161 @@ class DrawingUtils {
 		ctx.closePath();
 	}
 
+	// 繪製 Liquid Glass 效果的圓角矩形
+	static drawLiquidGlassRect(
+		ctx: any,
+		x: number,
+		y: number,
+		width: number,
+		height: number,
+		radius: number = 20,
+		accentColor: string = "#4A90E2"
+	): void {
+		// 創建玻璃背景漸層
+		const glassGradient = ctx.createLinearGradient(x, y, x, y + height);
+		glassGradient.addColorStop(0, "rgba(255, 255, 255, 0.15)");
+		glassGradient.addColorStop(0.5, "rgba(255, 255, 255, 0.08)");
+		glassGradient.addColorStop(1, "rgba(255, 255, 255, 0.05)");
+
+		// 繪製主要玻璃背景
+		this.drawRoundedRect(ctx, x, y, width, height, radius);
+		ctx.fillStyle = glassGradient;
+		ctx.fill();
+
+		// 添加背景模糊效果（使用半透明黑色）
+		ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+		ctx.fill();
+
+		// 繪製頂部高光
+		const topHighlight = ctx.createLinearGradient(
+			x,
+			y,
+			x,
+			y + height * 0.3
+		);
+		topHighlight.addColorStop(0, "rgba(255, 255, 255, 0.25)");
+		topHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+		this.drawRoundedRect(ctx, x, y, width, height * 0.3, radius);
+		ctx.fillStyle = topHighlight;
+		ctx.fill();
+
+		// 繪製邊框漸層
+		const borderGradient = ctx.createLinearGradient(x, y, x, y + height);
+		borderGradient.addColorStop(0, "rgba(255, 255, 255, 0.3)");
+		borderGradient.addColorStop(0.5, "rgba(255, 255, 255, 0.1)");
+		borderGradient.addColorStop(1, "rgba(255, 255, 255, 0.2)");
+
+		this.drawRoundedRect(ctx, x, y, width, height, radius);
+		ctx.strokeStyle = borderGradient;
+		ctx.lineWidth = 1.5;
+		ctx.stroke();
+
+		// 繪製頂部裝飾條（accent color）
+		const accentGradient = ctx.createLinearGradient(x, y, x + width, y);
+		// 確保顏色格式正確並添加透明度
+		const normalizedColor = this.normalizeColor(accentColor);
+		accentGradient.addColorStop(
+			0,
+			this.addAlphaToColor(normalizedColor, 0.5)
+		);
+		accentGradient.addColorStop(
+			0.5,
+			this.addAlphaToColor(normalizedColor, 1.0)
+		);
+		accentGradient.addColorStop(
+			1,
+			this.addAlphaToColor(normalizedColor, 0.5)
+		);
+
+		// 繪製頂部裝飾條，只在頂部有圓角
+		ctx.save();
+		this.drawRoundedRect(ctx, x, y, width, height, radius);
+		ctx.clip();
+
+		// 繪製裝飾條矩形
+		ctx.fillStyle = accentGradient;
+		ctx.fillRect(x, y, width, 4);
+
+		ctx.restore();
+
+		// 添加內部光澤效果
+		const innerGlow = ctx.createRadialGradient(
+			x + width * 0.3,
+			y + height * 0.2,
+			0,
+			x + width * 0.3,
+			y + height * 0.2,
+			width * 0.8
+		);
+		innerGlow.addColorStop(0, "rgba(255, 255, 255, 0.1)");
+		innerGlow.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+		ctx.save();
+		this.drawRoundedRect(ctx, x, y, width, height, radius);
+		ctx.clip();
+		ctx.fillStyle = innerGlow;
+		ctx.fillRect(x, y, width, height);
+		ctx.restore();
+	}
+
+	// 標準化顏色格式為 hex
+	static normalizeColor(color: string): string {
+		// 如果已經是 hex 格式，直接返回
+		if (
+			color.startsWith("#") &&
+			(color.length === 7 || color.length === 9)
+		) {
+			return color.length === 9 ? color.substring(0, 7) : color; // 移除現有的透明度
+		}
+
+		// 如果是預設顏色名稱，轉換為 hex
+		const colorMap: Record<string, string> = {
+			red: "#FF0000",
+			green: "#00FF00",
+			blue: "#0000FF",
+			yellow: "#FFFF00",
+			purple: "#800080",
+			orange: "#FFA500",
+			pink: "#FFC0CB",
+			cyan: "#00FFFF",
+			magenta: "#FF00FF",
+			lime: "#00FF00",
+			indigo: "#4B0082",
+			violet: "#8A2BE2",
+			brown: "#A52A2A",
+			gray: "#808080",
+			grey: "#808080",
+			black: "#000000",
+			white: "#FFFFFF"
+		};
+
+		const lowerColor = color.toLowerCase();
+		if (colorMap[lowerColor]) {
+			return colorMap[lowerColor];
+		}
+
+		// 如果無法識別，返回預設藍色
+		return "#4A90E2";
+	}
+
+	// 為顏色添加透明度
+	static addAlphaToColor(hexColor: string, alpha: number): string {
+		// 確保 alpha 在 0-1 範圍內
+		alpha = Math.max(0, Math.min(1, alpha));
+
+		// 移除 # 符號
+		const color = hexColor.replace("#", "");
+
+		// 轉換為 RGB
+		const r = parseInt(color.substring(0, 2), 16);
+		const g = parseInt(color.substring(2, 4), 16);
+		const b = parseInt(color.substring(4, 6), 16);
+
+		// 返回 rgba 格式
+		return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+	}
+
 	// 繪製資訊區塊
 	static drawInfoBlock(
 		ctx: any,
@@ -1409,45 +1564,66 @@ class DrawingUtils {
 		const padding = 20;
 		const titleHeight = 40;
 		const lineHeight = 30;
-		const borderRadius = 12;
+		const borderRadius = 20;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 15,
+			x + padding,
+			y + 15 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 4, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 15,
 			width - padding * 2,
 			titleHeight,
-			8
+			12
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(24, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 4;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 15, y + 15 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 繪製內容
 		let currentY = y + 15 + titleHeight + 20;
 		ctx.font = getFontString(20, "normal", "content");
-		ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+		ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
 
 		for (const line of content) {
 			ctx.fillText(line, x + padding + 15, currentY);
@@ -1471,46 +1647,67 @@ class DrawingUtils {
 		const padding = 20;
 		const titleHeight = 40;
 		const lineHeight = 40; // 增加行高以容納圖片
-		const borderRadius = 12;
+		const borderRadius = 20;
 		const iconSize = 24;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 15,
+			x + padding,
+			y + 15 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 4, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 15,
 			width - padding * 2,
 			titleHeight,
-			8
+			12
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(24, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 4;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 15, y + 15 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 繪製內容
 		let currentY = y + 15 + titleHeight + 20;
 		ctx.font = getFontString(18, "normal", "content");
-		ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+		ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
 
 		for (const item of items) {
 			const contentX = x + padding + 15;
@@ -1557,43 +1754,64 @@ class DrawingUtils {
 	): number {
 		const padding = 10;
 		const titleHeight = 40;
-		const borderRadius = 12;
+		const borderRadius = 20;
 		const iconWidth = 63;
 		const iconHeight = 73;
 		const iconSpacing = 40;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 15,
+			x + padding,
+			y + 15 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 4, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 15,
 			width - padding * 2,
 			titleHeight,
-			8
+			12
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(24, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 4;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 15, y + 15 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 計算圖示佈局
 		const contentStartY = y + 15 + titleHeight + 20;
@@ -1838,42 +2056,63 @@ class DrawingUtils {
 	): number {
 		const padding = 20;
 		const titleHeight = 40;
-		const borderRadius = 12;
+		const borderRadius = 20;
 		const skillSize = 94; // 主圓形直徑，減小6px (半徑減小3px)
 		const skillSpacing = 20;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 15,
+			x + padding,
+			y + 15 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 4, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 15,
 			width - padding * 2,
 			titleHeight,
-			8
+			12
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(24, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 4;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 15, y + 15 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 計算技能圓形的起始位置
 		const contentStartY = y + 15 + titleHeight + 30;
@@ -1919,40 +2158,61 @@ class DrawingUtils {
 	): Promise<number> {
 		const padding = 20;
 		const titleHeight = 40;
-		const borderRadius = 12;
+		const borderRadius = 20;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 15,
+			x + padding,
+			y + 15 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 4, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 15,
 			width - padding * 2,
 			titleHeight,
-			8
+			12
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(24, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 4;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 15, y + 15 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 計算內容區域
 		const contentStartY = y + 15 + titleHeight + 20;
@@ -2056,40 +2316,61 @@ class DrawingUtils {
 	): Promise<number> {
 		const padding = 20;
 		const titleHeight = 40;
-		const borderRadius = 12;
+		const borderRadius = 20;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 15,
+			x + padding,
+			y + 15 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 4, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 15,
 			width - padding * 2,
 			titleHeight,
-			8
+			12
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(24, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 4;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 15, y + 15 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 計算內容區域
 		const contentStartY = y + 15 + titleHeight + 30;
@@ -2238,40 +2519,61 @@ class DrawingUtils {
 	): Promise<number> {
 		const padding = 20;
 		const titleHeight = 40;
-		const borderRadius = 12;
+		const borderRadius = 20;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 15,
+			x + padding,
+			y + 15 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 4, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 15,
 			width - padding * 2,
 			titleHeight,
-			8
+			12
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(24, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 4;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 15, y + 15 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 計算內容區域
 		const contentStartY =
@@ -2547,40 +2849,61 @@ class DrawingUtils {
 	): Promise<number> {
 		const padding = 20;
 		const titleHeight = 40;
-		const borderRadius = 12;
+		const borderRadius = 20;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 15,
+			x + padding,
+			y + 15 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 4, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 15,
 			width - padding * 2,
 			titleHeight,
-			8
+			12
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(24, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 4;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 15, y + 15 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 計算內容區域
 		const contentStartY = y + 15 + titleHeight + 15;
@@ -2727,40 +3050,61 @@ class DrawingUtils {
 	): Promise<number> {
 		const padding = 15;
 		const titleHeight = 30;
-		const borderRadius = 8;
+		const borderRadius = 16;
 
-		// 繪製主背景
-		this.drawRoundedRect(ctx, x, y, width, height, borderRadius);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-		ctx.fill();
+		// 使用 Liquid Glass 效果（較小的 radius）
+		this.drawLiquidGlassRect(
+			ctx,
+			x,
+			y,
+			width,
+			height,
+			borderRadius,
+			accentColor
+		);
 
-		// 繪製邊框
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+		// 繪製標題背景（更現代的樣式）
+		const titleBgGradient = ctx.createLinearGradient(
+			x + padding,
+			y + 10,
+			x + padding,
+			y + 10 + titleHeight
+		);
+		titleBgGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+		titleBgGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
 
-		// 繪製頂部裝飾條
-		this.drawRoundedRect(ctx, x, y, width, 3, 2);
-		ctx.fillStyle = accentColor;
-		ctx.fill();
-
-		// 繪製標題背景
 		this.drawRoundedRect(
 			ctx,
 			x + padding,
 			y + 10,
 			width - padding * 2,
 			titleHeight,
-			6
+			8
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = titleBgGradient;
 		ctx.fill();
 
-		// 繪製標題文字
+		// 添加標題背景的邊框
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// 繪製標題文字（添加陰影效果）
 		ctx.font = getFontString(18, "bold", title);
 		ctx.fillStyle = "#FFFFFF";
 		ctx.textAlign = "left";
+		ctx.textBaseline = "middle";
+		ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+		ctx.shadowBlur = 2;
+		ctx.shadowOffsetX = 1;
+		ctx.shadowOffsetY = 1;
 		ctx.fillText(title, x + padding + 10, y + 10 + titleHeight / 2);
+
+		// 清除陰影
+		ctx.shadowColor = "transparent";
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
 
 		// 計算內容區域
 		const contentStartY = y + 10 + titleHeight + 15;
@@ -2775,12 +3119,15 @@ class DrawingUtils {
 
 		const hasEquipment = equipment[part.tid] && equipment[part.tid] !== 0;
 		const tier = equipment[part.tier] || 0;
+		const equipmentLevel = equipment[`${part.key}_equip_lv`] || 0;
 
 		// 左側：裝備圖片
-		const equipmentImageSize =
-			Math.min(leftWidth - 40, height - titleHeight - 60) * 0.7;
+		const equipmentImageSize = Math.min(
+			leftWidth - 40,
+			height - titleHeight - 60
+		);
 		const imageX = leftX + (leftWidth - equipmentImageSize) / 2;
-		const imageY = contentStartY + 35;
+		const imageY = contentStartY;
 
 		if (hasEquipment) {
 			try {
@@ -2861,19 +3208,19 @@ class DrawingUtils {
 				}
 
 				// 裝備等級標籤（在圖片下方）
-				ctx.font = getFontString(14, "bold", `T${tier}`);
+				ctx.font = "bold 32px 'Deco'";
 				ctx.fillStyle = "#FFFFFF";
 				ctx.strokeStyle = "#000000";
 				ctx.lineWidth = 2;
 				ctx.textAlign = "center";
 				ctx.textBaseline = "top";
 				ctx.strokeText(
-					`T${tier}`,
+					`T${tier}   Lv.${equipmentLevel}`,
 					imageX + equipmentImageSize / 2,
 					imageY + equipmentImageSize + 5
 				);
 				ctx.fillText(
-					`T${tier}`,
+					`T${tier}   Lv.${equipmentLevel}`,
 					imageX + equipmentImageSize / 2,
 					imageY + equipmentImageSize + 5
 				);
@@ -2894,12 +3241,12 @@ class DrawingUtils {
 				ctx.stroke();
 
 				// 裝備等級
-				ctx.font = getFontString(16, "bold", `T${tier}`);
+				ctx.font = "bold 32px 'Deco'";
 				ctx.fillStyle = "#FFFFFF";
 				ctx.textAlign = "center";
 				ctx.textBaseline = "middle";
 				ctx.fillText(
-					`T${tier}`,
+					`T${tier}   Lv.${equipmentLevel}`,
 					imageX + equipmentImageSize / 2,
 					imageY + equipmentImageSize / 2
 				);
@@ -2920,7 +3267,7 @@ class DrawingUtils {
 			ctx.lineWidth = 1;
 			ctx.stroke();
 
-			ctx.font = getFontString(14, "normal", "無");
+			ctx.font = getFontString(24, "normal", "無");
 			ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
 			ctx.textAlign = "center";
 			ctx.textBaseline = "middle";
@@ -2932,9 +3279,9 @@ class DrawingUtils {
 		}
 
 		// 右側：裝備效果（三條上到下，平均分配高度）
-		const availableHeight = height - titleHeight - 60; // 可用高度
+		const availableHeight = height - titleHeight - 45; // 可用高度
 		const effectHeight = availableHeight / 3; // 每條效果的平均高度
-		const effectStartY = contentStartY + 10; // 效果開始位置
+		const effectStartY = contentStartY; // 效果開始位置
 
 		// 顯示裝備效果
 		const effects = [];
@@ -2985,11 +3332,11 @@ class DrawingUtils {
 				}
 
 				// 繪製圓角背景
-				const bgWidth = rightWidth - 10;
-				const bgHeight = 30;
+				const bgWidth = rightWidth - 5;
+				const bgHeight = 45;
 				const bgX = rightX - 5;
-				const bgY = effectYPos - 15;
-				const borderRadius = 5; // 0.3125rem = 5px
+				const bgY = effectYPos - 22.5;
+				const borderRadius = 8; // 增大圓角
 
 				ctx.fillStyle = bgColor;
 				ctx.beginPath();
@@ -3021,27 +3368,27 @@ class DrawingUtils {
 				ctx.fill();
 
 				// 繪製效果名稱（左側）
-				ctx.font = getFontString(16, "bold", `【${effect.name}】`);
+				ctx.font = getFontString(24, "bold", `【${effect.name}】`);
 				ctx.fillStyle = titleColor;
 				ctx.textAlign = "left";
-				ctx.fillText(`【${effect.name}】`, rightX, effectYPos - 3);
+				ctx.fillText(`【${effect.name}】`, rightX, effectYPos - 5);
 
 				// 繪製效果數值（右側）
-				ctx.font = "bold 20px Deco";
+				ctx.font = "bold 30px Deco";
 				ctx.fillStyle = valueColor;
 				ctx.textAlign = "right";
 				ctx.fillText(
 					`+${effect.value}%`,
 					rightX + bgWidth - 10,
-					effectYPos - 8
+					effectYPos - 15
 				);
 			} else {
 				// 無效果 - 繪製與有效果時相同的白底圓角背景
-				const bgWidth = rightWidth - 10;
-				const bgHeight = 30;
+				const bgWidth = rightWidth - 5;
+				const bgHeight = 45;
 				const bgX = rightX - 5;
-				const bgY = effectYPos - 15;
-				const borderRadius = 5;
+				const bgY = effectYPos - 22.5;
+				const borderRadius = 8;
 
 				// 繪製白底圓角背景
 				ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
@@ -3074,13 +3421,13 @@ class DrawingUtils {
 				ctx.fill();
 
 				// 繪製居中的"暫無效果"文字
-				ctx.font = getFontString(16, "normal", "暫無效果");
+				ctx.font = getFontString(24, "normal", "暫無效果");
 				ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // 黑色半透明文字，在白底上更清晰
 				ctx.textAlign = "center";
 				ctx.fillText(
 					"暫無效果",
 					rightX + bgWidth / 2 - 5,
-					effectYPos - 3
+					effectYPos - 5
 				);
 			}
 		}
@@ -3876,18 +4223,20 @@ async function generateCharacterDetailImage(
 	);
 
 	// 創建背景漸層
-	const gradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
-	if (mainColor) {
-		// 使用主要顏色創建漸層背景
-		gradient.addColorStop(0, mainColor + "40"); // 25% 透明度
-		gradient.addColorStop(0.5, mainColor + "20"); // 12.5% 透明度
-		gradient.addColorStop(1, "#1a1a1a");
-	} else {
-		// 預設漸層
-		gradient.addColorStop(0, "#2a2a2a");
-		gradient.addColorStop(1, "#1a1a1a");
-	}
-	ctx.fillStyle = gradient;
+	// const gradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+	// if (mainColor) {
+	// 	// 使用主要顏色創建漸層背景
+	// 	gradient.addColorStop(0, mainColor + "40"); // 25% 透明度
+	// 	gradient.addColorStop(0.5, mainColor + "20"); // 12.5% 透明度
+	// 	gradient.addColorStop(1, "#1a1a1a");
+	// } else {
+	// 	// 預設漸層
+	// 	gradient.addColorStop(0, "#2a2a2a");
+	// 	gradient.addColorStop(1, "#1a1a1a");
+	// }
+	// ctx.fillStyle = gradient;
+	// ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+	ctx.fillStyle = CONFIG.COLORS.BACKGROUND;
 	ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 	ctx.drawImage(
 		await loadImage("src/assets/images/swiper4_left_icon.png"),
@@ -3943,17 +4292,16 @@ async function generateCharacterDetailImage(
 		const infoAreaX = canvasWidth * 0.4; // 固定資訊區域起始位置（畫布寬度的30%處）
 		const infoAreaWidth = canvasWidth - infoAreaX - 40; // 剩餘寬度用於資訊，右側留邊距
 
-		// 繪製資訊區域背景
-		DrawingUtils.drawRoundedRect(
+		// 繪製資訊區域背景（使用 Liquid Glass 效果）
+		DrawingUtils.drawLiquidGlassRect(
 			ctx,
 			infoAreaX,
 			40,
 			infoAreaWidth,
 			canvasHeight - 80,
-			20
+			20,
+			mainColor || "#4A90E2"
 		);
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-		ctx.fill();
 
 		// 資訊區塊的配置
 		const blockWidth = infoAreaWidth - 60;
