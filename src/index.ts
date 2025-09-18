@@ -22,6 +22,7 @@ import type { MessageCommand, SlashCommand } from "./types/index.js";
 
 // Services
 import { getAllFiles, Logger } from "./services/index.js";
+import nikkeNotificationService from "./services/nikkeNotification.js";
 
 // Utils
 
@@ -160,6 +161,11 @@ async function initialize() {
 		// 設置斜線指令
 		client.on("ready", async () => {
 			await client.application?.commands.set(slashCommands);
+
+			// 初始化並啟動 NIKKE 通知服務
+			nikkeNotificationService.initialize(client);
+			nikkeNotificationService.start();
+
 			new Logger("系統").success("Discord 機器人已準備就緒");
 		});
 	} catch (error) {
