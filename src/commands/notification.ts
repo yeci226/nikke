@@ -83,44 +83,21 @@ export default {
 	async execute(interaction: ChatInputCommandInteraction): Promise<void> {
 		const subcommand = interaction.options.getSubcommand();
 
-		try {
-			switch (subcommand) {
-				case "setup":
-					await handleSetup(interaction);
-					break;
-				case "status":
-					await handleStatus(interaction);
-					break;
-				case "disable":
-					await handleDisable(interaction);
-					break;
-				default:
-					await interaction.reply({
-						content: "❌ 無效的子指令",
-						flags: MessageFlags.Ephemeral
-					});
-			}
-		} catch (error) {
-			logger.error(`通知指令執行失敗: ${subcommand}`, {
-				error,
-				userId: interaction.user.id,
-				guildId: interaction.guildId
-			});
-
-			if (!interaction.replied && !interaction.deferred) {
-				await interaction
-					.reply({
-						content: "❌ 指令執行時發生錯誤，請稍後再試",
-						flags: MessageFlags.Ephemeral
-					})
-					.catch(() => {});
-			} else if (interaction.deferred) {
-				await interaction
-					.editReply({
-						content: "❌ 指令執行時發生錯誤，請稍後再試"
-					})
-					.catch(() => {});
-			}
+		switch (subcommand) {
+			case "setup":
+				await handleSetup(interaction);
+				break;
+			case "status":
+				await handleStatus(interaction);
+				break;
+			case "disable":
+				await handleDisable(interaction);
+				break;
+			default:
+				await interaction.reply({
+					content: "❌ 無效的子指令",
+					flags: MessageFlags.Ephemeral
+				});
 		}
 	}
 };
@@ -136,7 +113,7 @@ async function handleSetup(
 		return;
 	}
 
-	const channel = interaction.options.getChannel("頻道", true);
+	const channel = interaction.options.getChannel("channel", true);
 
 	if (!channel || channel.type !== ChannelType.GuildText) {
 		await interaction.reply({
