@@ -40,6 +40,7 @@ export async function getUserGamePlayerInfo(
 			.replace(/\r?\n/g, "")
 			.replace(/\s+/g, " ")
 			.trim();
+		console.log(cleanedCookie);
 
 		const response = await fetch(
 			"https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo",
